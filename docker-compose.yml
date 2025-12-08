@@ -1,0 +1,21 @@
+services:
+  vocabulary-app-mongodb:
+    image: mongo:latest
+    container_name: vocabulary-app-mongodb
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: mongodb
+      MONGO_INITDB_ROOT_PASSWORD: admin123
+      MONGO_INITDB_DATABASE: vocabulary_app
+    volumes:
+      - vocabulary-app-mongo-data:/data/db
+    networks:
+      - vocabulary-app-tier
+
+volumes:
+  vocabulary-app-mongo-data:
+
+networks:
+  vocabulary-app-tier:
+    driver: bridge

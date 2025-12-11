@@ -12,10 +12,15 @@ public class UserRouter {
 
     @Bean
     public RouterFunction<ServerResponse> userRoutes(UserHandler userHandler) {
+        String USERS_ENDPOINT = "api/users";
+
         return RouterFunctions
                 .route()
-                .GET("api/users", userHandler::getAllUsers)
-                .POST("api/users", userHandler::saveUser)
+                .GET(USERS_ENDPOINT, userHandler::getAllUsers)
+                .GET(USERS_ENDPOINT + "/{id}", userHandler::getUserById)
+                .POST(USERS_ENDPOINT, userHandler::saveUser)
+                .PUT(USERS_ENDPOINT + "/{id}", userHandler::updateUser)
+                .DELETE(USERS_ENDPOINT + "/{id}", userHandler::deleteUserById)
                 .build();
     }
 }

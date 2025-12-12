@@ -7,6 +7,7 @@ import dev.melvstein.vocabulary_app.mapper.UserMapper;
 import dev.melvstein.vocabulary_app.model.User;
 import dev.melvstein.vocabulary_app.service.UserService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.server.ServerRequest;
 import org.springframework.web.reactive.function.server.ServerResponse;
@@ -38,28 +39,47 @@ public class UserHandler {
     }
 
     public Mono<ServerResponse> getUserById(ServerRequest request) {
+        ApiResponse<UserDto> response = ApiResponse.<UserDto>builder()
+                .code(ApiResponseCode.ERROR.getCode())
+                .message("Internal Server Error")
+                .data(null)
+                .build();
+
         String id = request.pathVariable("id");
 
         return userService.getUserById(id)
                 .map(userMapper::toDto)
                 .flatMap(userDto -> {
                     System.out.println("Found user: " + userDto);
-                    return ServerResponse.ok().bodyValue(userDto);
+                    response.setCode(ApiResponseCode.SUCCESS.getCode());
+                    response.setMessage(ApiResponseCode.SUCCESS.getMessage());
+                    response.setData(userDto);
+                    return ServerResponse.ok().bodyValue(response);
                 })
                 .switchIfEmpty(Mono.defer(() -> {
                     System.out.println("No user found with id: " + id);
-                    return ServerResponse.notFound().build();
+                    response.setMessage("User not found");
+                    return ServerResponse.status(HttpStatus.NOT_FOUND).bodyValue(response);
                 }));
     }
 
     public Mono<ServerResponse> saveUser(ServerRequest request) {
+        ApiResponse<UserDto> response = ApiResponse.<UserDto>builder()
+                .code(ApiResponseCode.ERROR.getCode())
+                .message("Internal Server Error")
+                .data(null)
+                .build();
+
         return request.bodyToMono(User.class)
                 .flatMap(userRequest ->
                         // find the user first
                         userService.getUserByUsername(userRequest.getUsername())
+                                .map(userMapper::toDto)
                                 .flatMap(existingUser -> {
-                                    System.out.println("User with id " + existingUser.getId() + " already exists.");
-                                    return ServerResponse.badRequest().build();
+                                    System.out.println("User with id " + existingUser.id() + " already exists.");
+                                    response.setMessage("User with id " + existingUser.id() + " already exists.");
+                                    response.setData(existingUser);
+                                    return ServerResponse.status(HttpStatus.CONFLICT).bodyValue(response);
                                 })
                                 .switchIfEmpty(
                                         // User does not exist, save it
@@ -67,13 +87,22 @@ public class UserHandler {
                                                 .map(userMapper::toDto)
                                                 .flatMap(savedUser -> {
                                                     System.out.println("Saved new user with id " + savedUser.id());
-                                                    return ServerResponse.ok().bodyValue(savedUser);
+                                                    response.setCode(ApiResponseCode.SUCCESS.getCode());
+                                                    response.setMessage(ApiResponseCode.SUCCESS.getMessage());
+                                                    response.setData(savedUser);
+                                                    return ServerResponse.ok().bodyValue(response);
                                                 })
                                 )
                 );
     }
 
     public Mono<ServerResponse> updateUser(ServerRequest request) {
+        ApiResponse<UserDto> response = ApiResponse.<UserDto>builder()
+                .code(ApiResponseCode.ERROR.getCode())
+                .message("Internal Server Error")
+                .data(null)
+                .build();
+
         String id = request.pathVariable("id");
 
         return request.bodyToMono(User.class)
@@ -116,21 +145,41 @@ public class UserHandler {
                             // Save updated user
                             return userService.saveUser(existingUser)
                                     .map(userMapper::toDto)
-                                    .flatMap(updatedUser -> ServerResponse.ok().bodyValue(updatedUser));
+                                    .flatMap(updatedUser -> {
+                                        response.setCode(ApiResponseCode.SUCCESS.getCode());
+                                        response.setMessage(ApiResponseCode.SUCCESS.getMessage());
+                                        response.setData(updatedUser);
+                                        return ServerResponse.ok().bodyValue(response);
+                                    });
                         })
                         .switchIfEmpty(Mono.defer(() -> {
                             System.out.println("No user found with id: " + id);
-                            return ServerResponse.notFound().build();
+                            response.setMessage("User not found");
+                            return ServerResponse.status(HttpStatus.NOT_FOUND).bodyValue(response);
                         }))
                 );
     }
 
     public Mono<ServerResponse> deleteUserById(ServerRequest request) {
+        ApiResponse<UserDto> response = ApiResponse.<UserDto>builder()
+                .code(ApiResponseCode.ERROR.getCode())
+                .message("Internal Server Error")
+                .data(null)
+                .build();
+
         String id = request.pathVariable("id");
 
         return userService.deleteUserById(id)
                 .map(userMapper::toDto)
-                .flatMap(deletedUser -> ServerResponse.ok().bodyValue(deletedUser))
-                .switchIfEmpty(ServerResponse.notFound().build());
+                .flatMap(deletedUser -> {
+                    response.setCode(ApiResponseCode.SUCCESS.getCode());
+                    response.setMessage(ApiResponseCode.SUCCESS.getMessage());
+                    response.setData(deletedUser);
+                    return ServerResponse.ok().bodyValue(response);
+                })
+                .switchIfEmpty(Mono.defer(() -> {
+                    response.setMessage("No user found with id: " + id);
+                    return ServerResponse.status(HttpStatus.NOT_FOUND).bodyValue(response);
+                }));
     }
 }

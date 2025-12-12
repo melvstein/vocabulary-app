@@ -14,7 +14,6 @@ public record UserDto(
         String lastName,
         String username,
         String email,
-        List<VocabularyDto> vocabularies,
 
         @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss")
         LocalDateTime createdAt,

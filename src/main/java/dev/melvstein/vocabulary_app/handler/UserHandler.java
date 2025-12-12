@@ -1,6 +1,8 @@
 package dev.melvstein.vocabulary_app.handler;
 
+import dev.melvstein.vocabulary_app.Dto.ApiResponse;
 import dev.melvstein.vocabulary_app.Dto.UserDto;
+import dev.melvstein.vocabulary_app.enums.ApiResponseCode;
 import dev.melvstein.vocabulary_app.mapper.UserMapper;
 import dev.melvstein.vocabulary_app.model.User;
 import dev.melvstein.vocabulary_app.service.UserService;
@@ -8,7 +10,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.server.ServerRequest;
 import org.springframework.web.reactive.function.server.ServerResponse;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+
+import java.util.List;
 
 @Component
 @RequiredArgsConstructor
@@ -17,7 +22,19 @@ public class UserHandler {
     private final UserMapper userMapper;
 
     public Mono<ServerResponse> getAllUsers(ServerRequest request) {
-        return ServerResponse.ok().body(userService.getAllUsers().map(userMapper::toDto), UserDto.class);
+        ApiResponse<List<UserDto>> response = ApiResponse.<List<UserDto>>builder()
+                .code(ApiResponseCode.SUCCESS.getCode())
+                .message(ApiResponseCode.SUCCESS.getMessage())
+                .data(List.of())
+                .build();
+
+        return userService.getAllUsers()
+                .map(userMapper::toDto)
+                .collectList()
+                .flatMap(users -> {
+                    response.setData(users);
+                    return ServerResponse.ok().bodyValue(response);
+                });
     }
 
     public Mono<ServerResponse> getUserById(ServerRequest request) {
@@ -25,7 +42,10 @@ public class UserHandler {
 
         return userService.getUserById(id)
                 .map(userMapper::toDto)
-                .flatMap(dto -> ServerResponse.ok().bodyValue(dto))
+                .flatMap(userDto -> {
+                    System.out.println("Found user: " + userDto);
+                    return ServerResponse.ok().bodyValue(userDto);
+                })
                 .switchIfEmpty(Mono.defer(() -> {
                     System.out.println("No user found with id: " + id);
                     return ServerResponse.notFound().build();
@@ -34,19 +54,21 @@ public class UserHandler {
 
     public Mono<ServerResponse> saveUser(ServerRequest request) {
         return request.bodyToMono(User.class)
-                .flatMap(user ->
-                        userService.getUserByUsername(user.getUsername())
+                .flatMap(userRequest ->
+                        // find the user first
+                        userService.getUserByUsername(userRequest.getUsername())
                                 .flatMap(existingUser -> {
-                                    // User exists, return an error or log
                                     System.out.println("User with id " + existingUser.getId() + " already exists.");
-                                    return ServerResponse.badRequest()
-                                            .bodyValue("User already exists");
+                                    return ServerResponse.badRequest().build();
                                 })
                                 .switchIfEmpty(
                                         // User does not exist, save it
-                                        userService.saveUser(user)
+                                        userService.saveUser(userRequest)
                                                 .map(userMapper::toDto)
-                                                .flatMap(dto -> ServerResponse.ok().bodyValue(dto))
+                                                .flatMap(savedUser -> {
+                                                    System.out.println("Saved new user with id " + savedUser.id());
+                                                    return ServerResponse.ok().bodyValue(savedUser);
+                                                })
                                 )
                 );
     }
@@ -94,9 +116,12 @@ public class UserHandler {
                             // Save updated user
                             return userService.saveUser(existingUser)
                                     .map(userMapper::toDto)
-                                    .flatMap(dto -> ServerResponse.ok().bodyValue(dto));
+                                    .flatMap(updatedUser -> ServerResponse.ok().bodyValue(updatedUser));
                         })
-                        .switchIfEmpty(ServerResponse.notFound().build())
+                        .switchIfEmpty(Mono.defer(() -> {
+                            System.out.println("No user found with id: " + id);
+                            return ServerResponse.notFound().build();
+                        }))
                 );
     }
 

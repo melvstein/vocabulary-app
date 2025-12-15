@@ -17,10 +17,11 @@ public class UserRouter {
         return RouterFunctions
                 .route()
                 .GET(USERS_ENDPOINT, userHandler::getAllUsers)
-                .GET(USERS_ENDPOINT + "/{id}", userHandler::getUserById)
+                .GET(USERS_ENDPOINT + "/{userId}", userHandler::getUserById)
+                .GET(USERS_ENDPOINT + "/{userId}/vocabularies", userHandler::getVocabulariesByUserId)
                 .POST(USERS_ENDPOINT, userHandler::saveUser)
-                .PUT(USERS_ENDPOINT + "/{id}", userHandler::updateUser)
-                .DELETE(USERS_ENDPOINT + "/{id}", userHandler::deleteUserById)
+                .PUT(USERS_ENDPOINT + "/{userId}", userHandler::updateUser)
+                .DELETE(USERS_ENDPOINT + "/{userId}", userHandler::deleteUserById)
                 .build();
     }
 }

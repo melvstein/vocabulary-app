@@ -7,7 +7,6 @@ import java.time.LocalDateTime;
 
 @Builder
 public record VocabularyDto(
-        Long id,
         String word,
         String partOfSpeech,
         String englishDefinition,

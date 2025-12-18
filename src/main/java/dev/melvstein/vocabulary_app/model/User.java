@@ -35,8 +35,6 @@ public class User {
     @Indexed(unique = true)
     private String email;
 
-    List<Vocabulary> vocabularies;
-
     @CreatedDate
     private LocalDateTime createdAt;
 

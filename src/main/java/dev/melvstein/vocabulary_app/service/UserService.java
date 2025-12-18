@@ -1,20 +1,24 @@
 package dev.melvstein.vocabulary_app.service;
 
 import dev.melvstein.vocabulary_app.model.User;
+import dev.melvstein.vocabulary_app.model.Vocabulary;
 import dev.melvstein.vocabulary_app.repository.UserRepository;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+
 @Service
+@RequiredArgsConstructor
 public class UserService extends BaseService {
     private final UserRepository userRepository;
-
-    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder) {
-        super(passwordEncoder);
-        this.userRepository = userRepository;
-    }
+    @Getter
+    private final PasswordEncoder passwordEncoder;
 
     public Flux<User> getAllUsers() {
         return userRepository.findAll();

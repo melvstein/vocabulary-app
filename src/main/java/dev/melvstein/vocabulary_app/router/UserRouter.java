@@ -18,7 +18,6 @@ public class UserRouter {
                 .route()
                 .GET(USERS_ENDPOINT, userHandler::getAllUsers)
                 .GET(USERS_ENDPOINT + "/{userId}", userHandler::getUserById)
-                .GET(USERS_ENDPOINT + "/{userId}/vocabularies", userHandler::getVocabulariesByUserId)
                 .POST(USERS_ENDPOINT, userHandler::saveUser)
                 .PUT(USERS_ENDPOINT + "/{userId}", userHandler::updateUser)
                 .DELETE(USERS_ENDPOINT + "/{userId}", userHandler::deleteUserById)

@@ -193,33 +193,4 @@ public class UserHandler {
                     );
                 }));
     }
-
-    public Mono<ServerResponse> getVocabulariesByUserId(ServerRequest request) {
-        String userId = request.pathVariable("userId");
-
-        return userService.getUserById(userId)
-                .flatMap(user ->
-                        Flux.fromIterable(Optional.ofNullable(user.getVocabularies()).orElse(List.of()))
-                                .map(userMapper::toVocabularyDto)
-                                .collectList()
-                                .flatMap(vocabularies -> ServerResponse.ok().bodyValue(
-                                        ApiResponse.<List<VocabularyDto>>builder()
-                                                .code(ApiResponseCode.SUCCESS.getCode())
-                                                .message(ApiResponseCode.SUCCESS.getMessage())
-                                                .data(vocabularies)
-                                                .build()
-                                ))
-                )
-                .switchIfEmpty(Mono.defer(() -> {
-                    log.info("Method::getVocabulariesByUserId -> No user found with userId: {}", userId);
-
-                    return ServerResponse.status(HttpStatus.NOT_FOUND).bodyValue(
-                            ApiResponse.<List<VocabularyDto>>builder()
-                                    .code(ApiResponseCode.ERROR.getCode())
-                                    .message("No user found with userId: " + userId)
-                                    .data(List.of())
-                                    .build()
-                    );
-                }));
-    }
 }

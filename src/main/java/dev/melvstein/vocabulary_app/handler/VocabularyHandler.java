@@ -1,11 +1,15 @@
 package dev.melvstein.vocabulary_app.handler;
 
 import dev.melvstein.vocabulary_app.Dto.ApiResponse;
-import dev.melvstein.vocabulary_app.Dto.UserDto;
 import dev.melvstein.vocabulary_app.Dto.VocabularyDto;
 import dev.melvstein.vocabulary_app.enums.ApiResponseCode;
 import dev.melvstein.vocabulary_app.mapper.VocabularyMapper;
+import dev.melvstein.vocabulary_app.service.UserService;
 import dev.melvstein.vocabulary_app.service.VocabularyService;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.ConstraintViolationException;
+import jakarta.validation.Valid;
+import jakarta.validation.Validator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -15,6 +19,7 @@ import org.springframework.web.reactive.function.server.ServerResponse;
 import reactor.core.publisher.Mono;
 
 import java.util.List;
+import java.util.Set;
 
 @Component
 @RequiredArgsConstructor
@@ -22,6 +27,8 @@ import java.util.List;
 public class VocabularyHandler {
     private final VocabularyService vocabularyService;
     private final VocabularyMapper vocabularyMapper;
+    private final UserService userService;
+    private final Validator validator;
 
     public Mono<ServerResponse> getVocabularies(ServerRequest request) {
         return vocabularyService.getVocabularies()
@@ -41,45 +48,100 @@ public class VocabularyHandler {
     public Mono<ServerResponse> getVocabulariesByUserId(ServerRequest request) {
         String userId = request.pathVariable("userId");
 
-        return vocabularyService.getVocabulariesByUserId(userId)
-                .map(vocabularyMapper::toDto)
-                .collectList()
-                .flatMap(vocabularies -> {
-                    return ServerResponse.ok().bodyValue(
-                            ApiResponse.<List<VocabularyDto>>builder()
-                                    .code(ApiResponseCode.SUCCESS.getCode())
-                                    .message(ApiResponseCode.SUCCESS.getMessage())
-                                    .data(vocabularies)
-                                    .build()
-                    );
+        return userService.getUserById(userId)
+                .flatMap(user -> {
+                            return vocabularyService.getVocabulariesByUserId(user.getId())
+                                    .map(vocabularyMapper::toDto)
+                                    .collectList()
+                                    .flatMap(vocabularies -> {
+                                        return ServerResponse.ok().bodyValue(
+                                                ApiResponse.<List<VocabularyDto>>builder()
+                                                        .code(ApiResponseCode.SUCCESS.getCode())
+                                                        .message(ApiResponseCode.SUCCESS.getMessage())
+                                                        .data(vocabularies)
+                                                        .build()
+                                        );
+                                    });
                 })
-                .onErrorResume(IllegalArgumentException.class, e ->
-                        ServerResponse.badRequest().bodyValue(
-                                ApiResponse.builder()
-                                        .code(ApiResponseCode.ERROR.getCode())
-                                        .message(e.getMessage())
-                                        .data(null)
-                                        .build()
-                        )
-                );
+                .switchIfEmpty(ServerResponse.status(HttpStatus.NOT_FOUND).bodyValue(
+                        ApiResponse.builder()
+                                .code(ApiResponseCode.ERROR.getCode())
+                                .message("Empty vocabulary list for user id: " + userId)
+                                .data(null)
+                                .build()
+                ));
     }
 
     public Mono<ServerResponse> addVocabulary(ServerRequest request) {
         return request.bodyToMono(VocabularyDto.class)
-                .map(vocabularyMapper::toModel)
-                .flatMap(vocabularyService::addVocabulary)
-                .map(saved -> ApiResponse.<VocabularyDto>builder()
-                        .code(ApiResponseCode.SUCCESS.getCode())
-                        .message("Vocabulary added successfully.")
-                        .data(vocabularyMapper.toDto(saved))
-                        .build()
-                )
-                .flatMap(response -> ServerResponse.ok().bodyValue(response))
-                .onErrorResume(IllegalArgumentException.class, e ->
+                .doOnNext(vocabularyRequest -> {
+                    Set<ConstraintViolation<VocabularyDto>> violations = validator.validate(vocabularyRequest);
+
+                    if (!violations.isEmpty()) {
+                        throw new ConstraintViolationException(violations);
+                    }
+                })
+                .flatMap(vocabularyRequest -> {
+                    return userService.getUserById(vocabularyRequest.userId())
+                            .flatMap(user -> {
+                                return vocabularyService.getVocabularyByUserIdAndWord(user.getId(), vocabularyRequest.word())
+                                        .flatMap(existingVocabulary -> {
+                                            log.info("Method::addVocabulary -> Vocabulary already exists for userId: {} and word: {}",
+                                                    user.getId(), vocabularyRequest.word());
+
+                                            return ServerResponse.status(HttpStatus.CONFLICT).bodyValue(
+                                                    ApiResponse.builder()
+                                                            .code(ApiResponseCode.ERROR.getCode())
+                                                            .message("Vocabulary already exists for the given userId and word")
+                                                            .data(null)
+                                                            .build()
+                                            );
+                                        })
+                                        .switchIfEmpty(
+                                                vocabularyService.addVocabulary(vocabularyMapper.toEntity(vocabularyRequest))
+                                                        .map(vocabularyMapper::toDto)
+                                                        .flatMap(savedVocabularyDto -> {
+                                                            log.info("Method::addVocabulary -> Vocabulary added successfully for userId: {} and word: {}",
+                                                                    vocabularyRequest.userId(), vocabularyRequest.word());
+
+                                                            return ServerResponse.status(HttpStatus.CREATED).bodyValue(
+                                                                    ApiResponse.<VocabularyDto>builder()
+                                                                            .code(ApiResponseCode.SUCCESS.getCode())
+                                                                            .message("Vocabulary added successfully")
+                                                                            .data(savedVocabularyDto)
+                                                                            .build()
+                                                            );
+                                                        })
+                                        );
+                            })
+                            .switchIfEmpty(Mono.defer(() -> {
+                                log.info("Method::addVocabulary -> No user found with id {}", vocabularyRequest.userId());
+
+                                return ServerResponse.status(HttpStatus.NOT_FOUND).bodyValue(
+                                        ApiResponse.builder()
+                                                .code(ApiResponseCode.ERROR.getCode())
+                                                .message("No user found with userId: " + vocabularyRequest.userId())
+                                                .data(null)
+                                                .build()
+                                );
+                            }));
+                })
+                .switchIfEmpty(Mono.defer(() -> {
+                    log.info("Method::addVocabulary -> Empty request body");
+
+                    return ServerResponse.status(HttpStatus.BAD_REQUEST).bodyValue(
+                            ApiResponse.builder()
+                                    .code(ApiResponseCode.ERROR.getCode())
+                                    .message("Invalid vocabulary data")
+                                    .data(null)
+                                    .build()
+                    );
+                }))
+                .onErrorResume(ConstraintViolationException.class, ex ->
                         ServerResponse.badRequest().bodyValue(
                                 ApiResponse.builder()
                                         .code(ApiResponseCode.ERROR.getCode())
-                                        .message(e.getMessage())
+                                        .message(ex.getConstraintViolations().iterator().next().getMessage())
                                         .data(null)
                                         .build()
                         )

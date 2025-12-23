@@ -32,17 +32,15 @@ public class VocabularyService extends BaseService {
     }
 
     public Flux<Vocabulary> getVocabulariesByUserId(String userId) {
-        return userRepository.findById(userId)
-                .switchIfEmpty(Mono.error(new IllegalArgumentException("User not found")))
-                .thenMany(vocabularyRepository.findAllByUserId(userId));
+        return vocabularyRepository.findAllByUserId(userId);
+    }
+
+    public Mono<Vocabulary> getVocabularyByUserIdAndWord(String userId, String word) {
+        return vocabularyRepository.findByUserIdAndWord(userId, word);
     }
 
     public Mono<Vocabulary> addVocabulary(Vocabulary vocabulary) {
-        return userRepository.findById(vocabulary.getUserId())
-                .switchIfEmpty(Mono.error(new IllegalArgumentException("User not found")))
-                .then(vocabularyRepository.findByUserIdAndWord(vocabulary.getUserId(), vocabulary.getWord()))
-                .flatMap(existingVocabulary -> Mono.error(new IllegalArgumentException("Vocabulary already exists for this user")))
-                .then(vocabularyRepository.save(vocabulary));
+        return vocabularyRepository.save(vocabulary);
     }
 
     public Mono<Vocabulary> updateVocabulary(Vocabulary vocabulary) {

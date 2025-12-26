@@ -31,6 +31,10 @@ public class VocabularyService extends BaseService {
         return vocabularyRepository.findAll();
     }
 
+    public Mono<Vocabulary> getVocabularyById(String id) {
+        return vocabularyRepository.findById(id);
+    }
+
     public Flux<Vocabulary> getVocabulariesByUserId(String userId) {
         return vocabularyRepository.findAllByUserId(userId);
     }
@@ -86,11 +90,7 @@ public class VocabularyService extends BaseService {
                 });
     }
 
-    public Mono<Vocabulary> deleteVocabularyById(String id) {
-        return vocabularyRepository.findById(id)
-                .flatMap(vocabulary ->
-                        vocabularyRepository.delete(vocabulary)
-                                .then(Mono.just(vocabulary))
-                );
+    public Mono<Void> deleteVocabularyById(String id) {
+        return vocabularyRepository.deleteById(id);
     }
 }

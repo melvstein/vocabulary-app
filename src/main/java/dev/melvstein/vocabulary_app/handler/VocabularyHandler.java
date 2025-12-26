@@ -147,4 +147,31 @@ public class VocabularyHandler {
                         )
                 );
     }
+
+    public Mono<ServerResponse> deleteVocabularyById(ServerRequest request) {
+        String vocabularyId = request.pathVariable("vocabularyId");
+
+        return vocabularyService.getVocabularyById(vocabularyId)
+                .flatMap(vocabulary ->
+                        vocabularyService.deleteVocabularyById(vocabularyId)
+                        .then(Mono.defer(() -> ServerResponse.ok().bodyValue(
+                                ApiResponse.<VocabularyDto>builder()
+                                        .code(ApiResponseCode.SUCCESS.getCode())
+                                        .message("Vocabulary " + vocabulary.getWord() + " has been deleted successfully")
+                                        .data(vocabularyMapper.toDto(vocabulary))
+                                        .build()
+                        )))
+                )
+                .switchIfEmpty(Mono.defer(() -> {
+                    log.info("Method::deleteVocabularyById -> No vocabulary found with id {}", vocabularyId);
+
+                    return ServerResponse.status(HttpStatus.NOT_FOUND).bodyValue(
+                            ApiResponse.builder()
+                                    .code(ApiResponseCode.ERROR.getCode())
+                                    .message("No vocabulary found with id: " + vocabularyId)
+                                    .data(null)
+                                    .build()
+                    );
+                }));
+    }
 }

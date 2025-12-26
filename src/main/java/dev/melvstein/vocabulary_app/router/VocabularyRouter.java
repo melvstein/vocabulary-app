@@ -19,6 +19,7 @@ public class VocabularyRouter {
                 .GET(VOCABULARY_ENDPOINT, vocabularyHandler::getVocabularies)
                 .GET(VOCABULARY_ENDPOINT + "/user/{userId}", vocabularyHandler::getVocabulariesByUserId)
                 .POST(VOCABULARY_ENDPOINT, vocabularyHandler::addVocabulary)
+                .DELETE(VOCABULARY_ENDPOINT + "/{vocabularyId}", vocabularyHandler::deleteVocabularyById)
                 .build();
     }
 }

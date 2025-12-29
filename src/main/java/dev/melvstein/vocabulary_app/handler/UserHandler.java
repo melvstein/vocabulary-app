@@ -2,23 +2,21 @@ package dev.melvstein.vocabulary_app.handler;
 
 import dev.melvstein.vocabulary_app.Dto.ApiResponse;
 import dev.melvstein.vocabulary_app.Dto.UserDto;
-import dev.melvstein.vocabulary_app.Dto.VocabularyDto;
 import dev.melvstein.vocabulary_app.enums.ApiResponseCode;
 import dev.melvstein.vocabulary_app.mapper.UserMapper;
 import dev.melvstein.vocabulary_app.model.User;
 import dev.melvstein.vocabulary_app.service.UserService;
+import jakarta.validation.ConstraintViolationException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.server.ServerRequest;
 import org.springframework.web.reactive.function.server.ServerResponse;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import tools.jackson.databind.ObjectMapper;
 
 import java.util.List;
-import java.util.Optional;
 
 @Component
 @RequiredArgsConstructor
@@ -68,38 +66,49 @@ public class UserHandler {
 
     public Mono<ServerResponse> saveUser(ServerRequest request) {
         return request.bodyToMono(User.class)
-                .flatMap(userRequest ->
-                        {
-                            log.info("Received request to save user: {}", objectMapper.writeValueAsString(userRequest));
+                .flatMap(userService::validateRequest)
+                .flatMap(userRequest -> {
+                    log.info("Received request to save user: {}", objectMapper.writeValueAsString(userRequest));
 
-                            // find the user first
-                            return userService.getUserByUsername(userRequest.getUsername())
-                                    .map(userMapper::toDto)
-                                    .flatMap(existingUser -> {
-                                            log.info("Method::saveUser -> Existing user: {}", existingUser);
+                    // find the user first
+                    return userService.getUserByUsername(userRequest.getUsername())
+                            .map(userMapper::toDto)
+                            .flatMap(existingUser -> {
+                                    log.info("Method::saveUser -> Existing user: {}", existingUser);
 
-                                            return ServerResponse.status(HttpStatus.CONFLICT).bodyValue(
-                                                    ApiResponse.<UserDto>builder()
-                                                            .code(ApiResponseCode.ERROR.getCode())
-                                                            .message("User with username " + existingUser.username() + " already exists")
-                                                            .data(existingUser)
-                                                            .build()
-                                            );
-                                    })
-                                    .switchIfEmpty(
-                                            // User does not exist, save it
-                                            userService.saveUser(userRequest)
-                                                    .map(userMapper::toDto)
-                                                    .flatMap(savedUser -> ServerResponse.ok().bodyValue(
-                                                            ApiResponse.<UserDto>builder()
-                                                                    .code(ApiResponseCode.SUCCESS.getCode())
-                                                                    .message(ApiResponseCode.SUCCESS.getMessage())
-                                                                    .data(savedUser)
-                                                                    .build()
-                                                    ))
+                                    return ServerResponse.status(HttpStatus.CONFLICT).bodyValue(
+                                            ApiResponse.<UserDto>builder()
+                                                    .code(ApiResponseCode.ERROR.getCode())
+                                                    .message("User with username " + existingUser.username() + " already exists")
+                                                    .data(existingUser)
+                                                    .build()
                                     );
-                        }
-                );
+                            })
+                            .switchIfEmpty(
+                                    // User does not exist, save it
+                                    userService.saveUser(userRequest)
+                                            .map(userMapper::toDto)
+                                            .flatMap(savedUser -> ServerResponse.ok().bodyValue(
+                                                    ApiResponse.<UserDto>builder()
+                                                            .code(ApiResponseCode.SUCCESS.getCode())
+                                                            .message(ApiResponseCode.SUCCESS.getMessage())
+                                                            .data(savedUser)
+                                                            .build()
+                                            ))
+                            );
+                    }
+                )
+                .onErrorResume(ConstraintViolationException.class, ex -> {
+                    log.info("Method::saveUser -> Error occurred while saving user", ex);
+
+                    return ServerResponse.badRequest().bodyValue(
+                            ApiResponse.builder()
+                                    .code(ApiResponseCode.ERROR.getCode())
+                                    .message(ex.getConstraintViolations().iterator().next().getMessage())
+                                    .data(null)
+                                    .build()
+                    );
+                });
     }
 
     public Mono<ServerResponse> updateUser(ServerRequest request) {

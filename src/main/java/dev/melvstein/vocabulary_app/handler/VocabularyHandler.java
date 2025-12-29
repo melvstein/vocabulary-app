@@ -4,11 +4,11 @@ import dev.melvstein.vocabulary_app.Dto.ApiResponse;
 import dev.melvstein.vocabulary_app.Dto.VocabularyDto;
 import dev.melvstein.vocabulary_app.enums.ApiResponseCode;
 import dev.melvstein.vocabulary_app.mapper.VocabularyMapper;
+import dev.melvstein.vocabulary_app.model.Vocabulary;
 import dev.melvstein.vocabulary_app.service.UserService;
 import dev.melvstein.vocabulary_app.service.VocabularyService;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
-import jakarta.validation.Valid;
 import jakarta.validation.Validator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -74,13 +74,7 @@ public class VocabularyHandler {
 
     public Mono<ServerResponse> addVocabulary(ServerRequest request) {
         return request.bodyToMono(VocabularyDto.class)
-                .doOnNext(vocabularyRequest -> {
-                    Set<ConstraintViolation<VocabularyDto>> violations = validator.validate(vocabularyRequest);
-
-                    if (!violations.isEmpty()) {
-                        throw new ConstraintViolationException(violations);
-                    }
-                })
+                .flatMap(vocabularyService::validateRequest)
                 .flatMap(vocabularyRequest -> {
                     return userService.getUserById(vocabularyRequest.userId())
                             .flatMap(user -> {
@@ -98,7 +92,7 @@ public class VocabularyHandler {
                                             );
                                         })
                                         .switchIfEmpty(
-                                                vocabularyService.addVocabulary(vocabularyMapper.toEntity(vocabularyRequest))
+                                                vocabularyService.addVocabulary(vocabularyMapper.toDocument(vocabularyRequest))
                                                         .map(vocabularyMapper::toDto)
                                                         .flatMap(savedVocabularyDto -> {
                                                             log.info("Method::addVocabulary -> Vocabulary added successfully for userId: {} and word: {}",
@@ -146,6 +140,45 @@ public class VocabularyHandler {
                                         .build()
                         )
                 );
+    }
+
+    public Mono<ServerResponse> updateVocabularyById(ServerRequest request) {
+        String vocabularyId = request.pathVariable("vocabularyId");
+
+        return request.bodyToMono(Vocabulary.class)
+                .flatMap(vocabulary -> {
+                    vocabulary.setId(vocabularyId);
+                    return vocabularyService.updateVocabulary(vocabulary)
+                            .flatMap(updatedVocabulary -> ServerResponse.ok().bodyValue(
+                                            ApiResponse.<VocabularyDto>builder()
+                                                    .code(ApiResponseCode.SUCCESS.getCode())
+                                                    .message("Vocabulary updated successfully")
+                                                    .data(vocabularyMapper.toDto(updatedVocabulary))
+                                                    .build()
+                            ))
+                            .switchIfEmpty(Mono.defer(() -> {
+                                log.info("Method::updateVocabularyById -> No vocabulary found with id {}", vocabularyId);
+
+                                return ServerResponse.status(HttpStatus.NOT_FOUND).bodyValue(
+                                        ApiResponse.builder()
+                                                .code(ApiResponseCode.ERROR.getCode())
+                                                .message("No vocabulary found with id: " + vocabularyId)
+                                                .data(null)
+                                                .build()
+                                );
+                            }));
+                })
+                .switchIfEmpty(Mono.defer(() -> {
+                    log.info("Method::updateVocabularyById -> Empty request body");
+
+                    return ServerResponse.status(HttpStatus.BAD_REQUEST).bodyValue(
+                            ApiResponse.builder()
+                                    .code(ApiResponseCode.ERROR.getCode())
+                                    .message("Invalid vocabulary data")
+                                    .data(null)
+                                    .build()
+                    );
+                }));
     }
 
     public Mono<ServerResponse> deleteVocabularyById(ServerRequest request) {

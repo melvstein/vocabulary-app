@@ -29,7 +29,7 @@ public class VocabularyMapper {
                 .build();
     }
 
-    public Vocabulary toEntity(VocabularyDto vocabularyDto) {
+    public Vocabulary toDocument(VocabularyDto vocabularyDto) {
         if (vocabularyDto == null) {
             return null;
         }

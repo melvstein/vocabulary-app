@@ -19,7 +19,7 @@ public class UserRouter {
                 .GET(USERS_ENDPOINT, userHandler::getAllUsers)
                 .GET(USERS_ENDPOINT + "/{userId}", userHandler::getUserById)
                 .POST(USERS_ENDPOINT, userHandler::saveUser)
-                .PUT(USERS_ENDPOINT + "/{userId}", userHandler::updateUser)
+                .PATCH(USERS_ENDPOINT + "/{userId}", userHandler::updateUser)
                 .DELETE(USERS_ENDPOINT + "/{userId}", userHandler::deleteUserById)
                 .build();
     }

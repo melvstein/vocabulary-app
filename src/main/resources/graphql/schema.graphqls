@@ -1,0 +1,74 @@
+type SingleDataApiResponse {
+    code: String!
+    message: String!
+    data: AdminUser
+}
+
+type MultipleDataApiResponse {
+    code: String!
+    message: String!
+    data: [AdminUser]!
+}
+
+type AdminUser {
+    id: ID!
+    role: String!
+    firstName: String!
+    middleName: String!
+    lastName: String!
+    username: String!
+    email: String!
+    createdAt: String!
+    updatedAt: String!
+}
+
+type Vocabulary {
+    id: ID!
+    word: String!
+    partOfSpeech: String!
+    englishDefinition: String!
+    tagalogDefinition: String!
+    englishSynonyms: String!
+    tagalogSynonyms: String!
+    englishAntonyms: String!
+    tagalogAntonyms: String!
+    exampleSentence: String!
+    createdAt: String!
+    updatedAt: String!
+}
+
+type Query {
+    getAllAdminUsers: MultipleDataApiResponse!
+    getAdminUserById(id: ID!): SingleDataApiResponse!
+}
+
+input AddAdminUserRequest {
+    role: String!
+    firstName: String!
+    middleName: String!
+    lastName: String!
+    username: String!
+    password: String!
+    email: String!
+}
+
+input UpdateAdminUserRequest {
+    role: String
+    firstName: String
+    middleName: String
+    lastName: String
+    username: String
+    password: String
+    email: String
+}
+
+type Mutation {
+    addAdminUser(request: AddAdminUserRequest!): SingleDataApiResponse!
+
+    updateAdminUser(
+        id: ID!
+        request: UpdateAdminUserRequest!
+    ): SingleDataApiResponse!
+
+    deleteAdminUserById(id: ID!): SingleDataApiResponse!
+}

@@ -9,4 +9,5 @@ import reactor.core.publisher.Mono;
 public interface AdminUserRepository extends ReactiveMongoRepository<AdminUser, String> {
     Mono<AdminUser> findByUsername(String username);
     Mono<AdminUser> findByEmail(String email);
+    Mono<AdminUser> findByUsernameOrEmail(String username, String email);
 }

@@ -30,6 +30,10 @@ public class AdminUserService extends BaseService {
         return adminUserRepository.findByEmail(email);
     }
 
+    public Mono<AdminUser> getAdminUserByUsernameOrEmail(String username, String email) {
+        return adminUserRepository.findByUsernameOrEmail(username, email);
+    }
+
     public Mono<AdminUser> saveAdminUser(AdminUser adminUser) {
         return adminUserRepository.save(adminUser);
     }

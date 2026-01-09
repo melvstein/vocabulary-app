@@ -23,7 +23,6 @@ public class AdminUser {
     @Id
     private String id;
 
-    @Pattern(regexp = "ADMIN|STAFF", message = "Invalid role. Allowed values are ADMIN or STAFF")
     private String role;
 
     @Indexed(unique = true)

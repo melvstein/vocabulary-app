@@ -1,6 +1,7 @@
 package dev.melvstein.vocabulary_app.mapper;
 
 import dev.melvstein.vocabulary_app.Dto.AdminUserDto;
+import dev.melvstein.vocabulary_app.graphql.dto.UpdateAdminUserRequest;
 import dev.melvstein.vocabulary_app.model.AdminUser;
 import org.springframework.stereotype.Component;
 
@@ -42,6 +43,22 @@ public class AdminUserMapper {
                 .email(adminUserDto.email())
                 .createdAt(adminUserDto.createdAt())
                 .updatedAt(adminUserDto.updatedAt())
+                .build();
+    }
+
+    public AdminUser toDocument(UpdateAdminUserRequest updateAdminUserRequest) {
+        if (updateAdminUserRequest == null) {
+            return null;
+        }
+
+        return AdminUser.builder()
+                .role(updateAdminUserRequest.role())
+                .firstName(updateAdminUserRequest.firstName())
+                .middleName(updateAdminUserRequest.middleName())
+                .lastName(updateAdminUserRequest.lastName())
+                .username(updateAdminUserRequest.username())
+                .password(updateAdminUserRequest.password())
+                .email(updateAdminUserRequest.email())
                 .build();
     }
 
